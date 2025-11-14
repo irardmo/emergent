@@ -37,7 +37,7 @@ class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     email: EmailStr
     username: str
-    role: str  # Admin, Student, Teacher, Registrar, Accounting, HR, CollegeSecretary
+    role: str  # Admin, Student, Teacher, Registrar, Accounting, HR, CollegeSecretary, AcademicDean, DepartmentHead
     status: str = "active"  # active, inactive
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -66,6 +66,8 @@ class Student(BaseModel):
     program: str
     year_level: int
     email: str
+    enrollment_status: str = "Enrolled"
+    section: str = "A"
 
 class Teacher(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -75,6 +77,52 @@ class Teacher(BaseModel):
     first_name: str
     last_name: str
     department: str
+    email: str
+
+class Registrar(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    registrar_id: str
+    first_name: str
+    last_name: str
+    email: str
+
+class AcademicDean(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    dean_id: str
+    first_name: str
+    last_name: str
+    email: str
+
+class DepartmentHead(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    head_id: str
+    first_name: str
+    last_name: str
+    department: str
+    email: str
+
+class HR(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    hr_id: str
+    first_name: str
+    last_name: str
+    email: str
+
+class Accounting(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    accounting_id: str
+    first_name: str
+    last_name: str
     email: str
 
 class Subject(BaseModel):
@@ -93,6 +141,7 @@ class CourseLoad(BaseModel):
     schedule: str
     semester: str
     school_year: str
+    room: str
 
 class AttendanceRecord(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -118,6 +167,7 @@ class Grade(BaseModel):
     score: float
     remarks: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    status: str = "Submitted" # Submitted, Approved, Rejected, Locked
 
 class GradeCreate(BaseModel):
     load_id: str
@@ -163,6 +213,36 @@ class EvaluationCreate(BaseModel):
     q4_score: int
     q5_score: int
     comment: Optional[str] = None
+
+class Payment(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    student_id: str
+    amount: float
+    date: str
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class Document(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    student_id: str
+    document_type: str
+    file_path: str
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class EvaluationQuestion(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    question: str
+    is_active: bool = True
+
+class Fee(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    student_id: str
+    description: str
+    amount: float
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 # ==================== HELPER FUNCTIONS ====================
 
@@ -250,6 +330,59 @@ async def register(user_data: UserCreate):
             "email": user_data.email
         }
         await db.teachers.insert_one(teacher_doc)
+    elif user_data.role == "Registrar":
+        registrar_doc = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "registrar_id": f"REG{str(uuid.uuid4())[:8].upper()}",
+            "first_name": user_data.first_name,
+            "last_name": user_data.last_name,
+            "email": user_data.email
+        }
+        await db.registrars.insert_one(registrar_doc)
+    elif user_data.role == "AcademicDean":
+        dean_doc = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "dean_id": f"DEAN{str(uuid.uuid4())[:8].upper()}",
+            "first_name": user_data.first_name,
+            "last_name": user_data.last_name,
+            "email": user_data.email
+        }
+        await db.academic_deans.insert_one(dean_doc)
+    elif user_data.role == "DepartmentHead":
+        if not user_data.department:
+            raise HTTPException(status_code=400, detail="Department is required for Department Head")
+        head_doc = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "head_id": f"HEAD{str(uuid.uuid4())[:8].upper()}",
+            "first_name": user_data.first_name,
+            "last_name": user_data.last_name,
+            "department": user_data.department or "General",
+            "email": user_data.email
+        }
+        await db.department_heads.insert_one(head_doc)
+    elif user_data.role == "HR":
+        hr_doc = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "hr_id": f"HR{str(uuid.uuid4())[:8].upper()}",
+            "first_name": user_data.first_name,
+            "last_name": user_data.last_name,
+            "email": user_data.email
+        }
+        await db.hrs.insert_one(hr_doc)
+    elif user_data.role == "Accounting":
+        accounting_doc = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "accounting_id": f"ACC{str(uuid.uuid4())[:8].upper()}",
+            "first_name": user_data.first_name,
+            "last_name": user_data.last_name,
+            "email": user_data.email
+        }
+        await db.accountings.insert_one(accounting_doc)
     
     token = create_access_token({"sub": user_id, "role": user_data.role})
     return {"token": token, "user": {"id": user_id, "email": user_data.email, "role": user_data.role}}
@@ -271,6 +404,16 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         profile = await db.students.find_one({"user_id": current_user["id"]}, {"_id": 0})
     elif current_user["role"] == "Teacher":
         profile = await db.teachers.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    elif current_user["role"] == "Registrar":
+        profile = await db.registrars.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    elif current_user["role"] == "AcademicDean":
+        profile = await db.academic_deans.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    elif current_user["role"] == "DepartmentHead":
+        profile = await db.department_heads.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    elif current_user["role"] == "HR":
+        profile = await db.hrs.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    elif current_user["role"] == "Accounting":
+        profile = await db.accountings.find_one({"user_id": current_user["id"]}, {"_id": 0})
     
     return {**current_user, "profile": profile}
 
@@ -290,6 +433,21 @@ async def get_all_users(current_user: dict = Depends(get_current_user)):
         elif user["role"] == "Teacher":
             profile = await db.teachers.find_one({"user_id": user["id"]}, {"_id": 0})
             user["profile"] = profile
+        elif user["role"] == "Registrar":
+            profile = await db.registrars.find_one({"user_id": user["id"]}, {"_id": 0})
+            user["profile"] = profile
+        elif user["role"] == "AcademicDean":
+            profile = await db.academic_deans.find_one({"user_id": user["id"]}, {"_id": 0})
+            user["profile"] = profile
+        elif user["role"] == "DepartmentHead":
+            profile = await db.department_heads.find_one({"user_id": user["id"]}, {"_id": 0})
+            user["profile"] = profile
+        elif user["role"] == "HR":
+            profile = await db.hrs.find_one({"user_id": user["id"]}, {"_id": 0})
+            user["profile"] = profile
+        elif user["role"] == "Accounting":
+            profile = await db.accountings.find_one({"user_id": user["id"]}, {"_id": 0})
+            user["profile"] = profile
     
     return users
 
@@ -305,6 +463,11 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_current_use
     # Delete associated profiles
     await db.students.delete_one({"user_id": user_id})
     await db.teachers.delete_one({"user_id": user_id})
+    await db.registrars.delete_one({"user_id": user_id})
+    await db.academic_deans.delete_one({"user_id": user_id})
+    await db.department_heads.delete_one({"user_id": user_id})
+    await db.hrs.delete_one({"user_id": user_id})
+    await db.accountings.delete_one({"user_id": user_id})
     
     return {"message": "User deleted successfully"}
 
@@ -512,6 +675,307 @@ async def get_student_attendance(current_user: dict = Depends(get_current_user))
     
     attendance = await db.attendance.find({"student_id": student["id"]}, {"_id": 0}).to_list(100)
     return attendance
+
+# ==================== REGISTRAR ROUTES ====================
+
+@api_router.get("/registrar/students")
+async def get_registrar_students(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Registrar":
+        raise HTTPException(status_code=403, detail="Registrar access required")
+
+    students = await db.students.find({}, {"_id": 0}).to_list(1000)
+    return students
+
+@api_router.put("/registrar/students/{student_id}")
+async def update_student(student_id: str, student_data: Student, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Registrar":
+        raise HTTPException(status_code=403, detail="Registrar access required")
+
+    result = await db.students.update_one({"id": student_id}, {"$set": student_data.model_dump()})
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    return {"message": "Student updated successfully"}
+
+@api_router.put("/registrar/students/{student_id}/status")
+async def update_student_status(student_id: str, status: str, section: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Registrar":
+        raise HTTPException(status_code=403, detail="Registrar access required")
+
+    result = await db.students.update_one({"id": student_id}, {"$set": {"enrollment_status": status, "section": section}})
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    return {"message": "Student status updated successfully"}
+
+@api_router.post("/registrar/schedules")
+async def create_schedule(schedule: CourseLoad, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Registrar":
+        raise HTTPException(status_code=403, detail="Registrar access required")
+
+    # Check for teacher conflict
+    existing_teacher_schedule = await db.course_loads.find_one({
+        "teacher_id": schedule.teacher_id,
+        "schedule": schedule.schedule,
+        "semester": schedule.semester,
+        "school_year": schedule.school_year
+    })
+    if existing_teacher_schedule:
+        raise HTTPException(status_code=400, detail="Teacher has a schedule conflict")
+
+    # Check for room conflict
+    existing_room_schedule = await db.course_loads.find_one({
+        "room": schedule.room,
+        "schedule": schedule.schedule,
+        "semester": schedule.semester,
+        "school_year": schedule.school_year
+    })
+    if existing_room_schedule:
+        raise HTTPException(status_code=400, detail="Room has a schedule conflict")
+
+    schedule_doc = schedule.model_dump()
+    await db.course_loads.insert_one(schedule_doc)
+    return schedule_doc
+
+@api_router.get("/registrar/grades/submissions")
+async def get_grade_submissions(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Registrar":
+        raise HTTPException(status_code=403, detail="Registrar access required")
+
+    grades = await db.grades.find({"status": "Submitted"}, {"_id": 0}).to_list(1000)
+    return grades
+
+@api_router.put("/registrar/grades/submissions/{grade_id}")
+async def approve_or_reject_grade(grade_id: str, status: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Registrar":
+        raise HTTPException(status_code=403, detail="Registrar access required")
+
+    if status not in ["Approved", "Rejected", "Locked"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+
+    grade = await db.grades.find_one({"id": grade_id}, {"_id": 0})
+    if not grade:
+        raise HTTPException(status_code=404, detail="Grade not found")
+
+    if grade["status"] == "Locked":
+        raise HTTPException(status_code=400, detail="Grade is locked")
+
+    result = await db.grades.update_one({"id": grade_id}, {"$set": {"status": status}})
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Grade not found")
+
+    return {"message": f"Grade {status.lower()} successfully"}
+
+@api_router.post("/registrar/students/{student_id}/documents")
+async def upload_document(student_id: str, document_type: str, file_path: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Registrar":
+        raise HTTPException(status_code=403, detail="Registrar access required")
+
+    document_doc = {
+        "id": str(uuid.uuid4()),
+        "student_id": student_id,
+        "document_type": document_type,
+        "file_path": file_path,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.documents.insert_one(document_doc)
+    return document_doc
+
+@api_router.get("/registrar/students/{student_id}/documents")
+async def get_documents(student_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Registrar":
+        raise HTTPException(status_code=403, detail="Registrar access required")
+
+    documents = await db.documents.find({"student_id": student_id}, {"_id": 0}).to_list(1000)
+    return documents
+
+@api_router.get("/registrar/requests")
+async def get_requests(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Registrar":
+        raise HTTPException(status_code=403, detail="Registrar access required")
+
+    requests = await db.requests.find({"status": "Pending"}, {"_id": 0}).to_list(1000)
+    return requests
+
+@api_router.put("/registrar/requests/{request_id}")
+async def approve_or_reject_request(request_id: str, status: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Registrar":
+        raise HTTPException(status_code=403, detail="Registrar access required")
+
+    if status not in ["Approved", "Rejected"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+
+    result = await db.requests.update_one({"id": request_id}, {"$set": {"status": status}})
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    return {"message": f"Request {status.lower()} successfully"}
+
+# ==================== ACADEMIC DEAN ROUTES ====================
+
+@api_router.get("/dean/grades")
+async def get_dean_grades(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "AcademicDean":
+        raise HTTPException(status_code=403, detail="Academic Dean access required")
+
+    grades = await db.grades.find({}, {"_id": 0}).to_list(1000)
+    return grades
+
+@api_router.get("/dean/teaching-loads")
+async def get_teaching_loads(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "AcademicDean":
+        raise HTTPException(status_code=403, detail="Academic Dean access required")
+
+    loads = await db.course_loads.find({}, {"_id": 0}).to_list(1000)
+    return loads
+
+@api_router.get("/dean/curriculum")
+async def get_curriculum(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "AcademicDean":
+        raise HTTPException(status_code=403, detail="Academic Dean access required")
+
+    subjects = await db.subjects.find({}, {"_id": 0}).to_list(1000)
+    return subjects
+
+# ==================== DEPARTMENT HEAD ROUTES ====================
+
+@api_router.get("/head/students")
+async def get_head_students(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "DepartmentHead":
+        raise HTTPException(status_code=403, detail="Department Head access required")
+
+    head = await db.department_heads.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    if not head:
+        raise HTTPException(status_code=404, detail="Department Head profile not found")
+
+    students = await db.students.find({"program": head["department"]}, {"_id": 0}).to_list(1000)
+    return students
+
+@api_router.get("/head/grades")
+async def get_head_grades(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "DepartmentHead":
+        raise HTTPException(status_code=403, detail="Department Head access required")
+
+    head = await db.department_heads.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    if not head:
+        raise HTTPException(status_code=404, detail="Department Head profile not found")
+
+    students = await db.students.find({"program": head["department"]}, {"_id": 0}).to_list(1000)
+    student_ids = [student["id"] for student in students]
+
+    grades = await db.grades.find({"student_id": {"$in": student_ids}}, {"_id": 0}).to_list(1000)
+    return grades
+
+# ==================== HR ROUTES ====================
+
+@api_router.get("/hr/evaluations")
+async def get_hr_evaluations(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "HR":
+        raise HTTPException(status_code=403, detail="HR access required")
+
+    evaluations = await db.evaluations.find({}, {"_id": 0}).to_list(1000)
+    return evaluations
+
+@api_router.post("/hr/evaluation-periods")
+async def create_evaluation_period(start_date: str, end_date: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "HR":
+        raise HTTPException(status_code=403, detail="HR access required")
+
+    period_doc = {
+        "id": str(uuid.uuid4()),
+        "start_date": start_date,
+        "end_date": end_date
+    }
+    await db.evaluation_periods.insert_one(period_doc)
+    return period_doc
+
+@api_router.get("/hr/evaluation-periods")
+async def get_evaluation_periods(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "HR":
+        raise HTTPException(status_code=403, detail="HR access required")
+
+    periods = await db.evaluation_periods.find({}, {"_id": 0}).to_list(1000)
+    return periods
+
+@api_router.post("/hr/evaluation-questions")
+async def create_evaluation_question(question: EvaluationQuestion, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "HR":
+        raise HTTPException(status_code=403, detail="HR access required")
+
+    question_doc = question.model_dump()
+    await db.evaluation_questions.insert_one(question_doc)
+    return question_doc
+
+@api_router.get("/hr/evaluation-questions")
+async def get_evaluation_questions(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "HR":
+        raise HTTPException(status_code=403, detail="HR access required")
+
+    questions = await db.evaluation_questions.find({"is_active": True}, {"_id": 0}).to_list(1000)
+    return questions
+
+# ==================== ACCOUNTING ROUTES ====================
+
+@api_router.get("/accounting/payments")
+async def get_accounting_payments(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Accounting":
+        raise HTTPException(status_code=403, detail="Accounting access required")
+
+    payments = await db.payments.find({}, {"_id": 0}).to_list(1000)
+    return payments
+
+@api_router.post("/accounting/payments")
+async def create_payment(payment: Payment, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Accounting":
+        raise HTTPException(status_code=403, detail="Accounting access required")
+
+    payment_doc = payment.model_dump()
+    await db.payments.insert_one(payment_doc)
+    return payment_doc
+
+@api_router.get("/accounting/students/{student_id}/balance")
+async def get_student_balance(student_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Accounting":
+        raise HTTPException(status_code=403, detail="Accounting access required")
+
+    payments = await db.payments.find({"student_id": student_id}, {"_id": 0}).to_list(1000)
+    total_paid = sum([payment["amount"] for payment in payments])
+
+    fees = await db.fees.find({"student_id": student_id}, {"_id": 0}).to_list(1000)
+    total_due = sum([fee["amount"] for fee in fees])
+
+    return {"total_due": total_due, "total_paid": total_paid, "balance": total_due - total_paid}
+
+@api_router.post("/accounting/fees")
+async def create_fee(fee: Fee, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Accounting":
+        raise HTTPException(status_code=403, detail="Accounting access required")
+
+    fee_doc = fee.model_dump()
+    await db.fees.insert_one(fee_doc)
+    return fee_doc
+
+@api_router.get("/accounting/students/{student_id}/statement")
+async def get_student_statement(student_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Accounting":
+        raise HTTPException(status_code=403, detail="Accounting access required")
+
+    student = await db.students.find_one({"id": student_id}, {"_id": 0})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    payments = await db.payments.find({"student_id": student_id}, {"_id": 0}).to_list(1000)
+    fees = await db.fees.find({"student_id": student_id}, {"_id": 0}).to_list(1000)
+
+    return {"student": student, "fees": fees, "payments": payments}
+
+@api_router.get("/accounting/students/{student_id}/payments")
+async def get_student_payments(student_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Accounting":
+        raise HTTPException(status_code=403, detail="Accounting access required")
+
+    payments = await db.payments.find({"student_id": student_id}, {"_id": 0}).to_list(1000)
+    return payments
 
 # ==================== COMMON ROUTES ====================
 
